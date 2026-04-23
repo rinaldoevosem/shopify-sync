@@ -134,10 +134,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const title = buildTitle(row);
   const handle = buildHandle(sku, title);
 
-  const imageUrls = [
-    ...parseImageUrls(row["Image"]),
-    ...parseImageUrls(row["Ecomm Photos"]),
-  ];
+  const imageUrls = parseImageUrls(row["Image"]);
 
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),

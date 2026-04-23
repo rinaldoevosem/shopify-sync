@@ -40,7 +40,7 @@ export function na(val: string | undefined): string {
 }
 
 export function shouldSkip(row: AirtableRecord): boolean {
-  return row["New website"]?.trim() !== "checked" || row["Archived"]?.trim() === "checked";
+  return row["New website"]?.trim() !== "checked";
 }
 
 export function cleanPrice(val: string | undefined): string {
@@ -109,10 +109,8 @@ export function parseImageUrls(cell: string | undefined): string[] {
   const urls: string[] = [];
   const matches = [...cell.matchAll(/\S+?\.\w+\s+\((https?:\/\/[^)]+)\)/g)];
   for (const m of matches) {
-    const fullMatch = m[0];
-    const ext = fullMatch.split(".")[0].split("").reverse().join("").split(".")[0].split("").reverse().join("").toLowerCase();
-    const realExt = fullMatch.split("(")[0].trim().split(".").pop()?.toLowerCase() ?? "";
-    if (["jpg", "jpeg", "png", "gif", "webp"].includes(realExt)) {
+    const ext = m[0].split("(")[0].trim().split(".").pop()?.toLowerCase() ?? "";
+    if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
       urls.push(m[1]);
     }
   }
