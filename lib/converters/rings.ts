@@ -132,7 +132,7 @@ function buildTags(row: AirtableRecord): string[] {
 
 export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const sku = row["Item No."]?.trim() ?? "";
-  const title = buildTitle(row);
+  const title = na(row["Shopify Title"]) || sku;
   const handle = buildHandle(sku, title);
 
   const imageUrls = parseImageUrls(row["Image"]);
