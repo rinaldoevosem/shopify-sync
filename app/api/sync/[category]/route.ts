@@ -67,6 +67,18 @@ export async function POST(
   const errorDetails: string[] = [];
   const videoQueue: VideoQueueEntry[] = [];
 
+  // Diagnostic: if everything got skipped, surface the column names + a value sample
+  // so we can see why the eligibility filter didn't match any row.
+  if (records.length > 0 && eligible.length === 0) {
+    const sample = records[0];
+    const cols = Object.keys(sample);
+    const newWebsiteKey = cols.find((k) => k.toLowerCase().replace(/\s+/g, " ").trim() === "new website");
+    const archivedKey = cols.find((k) => k.toLowerCase().replace(/\s+/g, " ").trim() === "archived");
+    errorDetails.push(`all ${records.length} rows skipped. Columns found: ${JSON.stringify(cols)}`);
+    errorDetails.push(`"new website" key matched: ${JSON.stringify(newWebsiteKey ?? null)}; first-row value: ${JSON.stringify(newWebsiteKey ? sample[newWebsiteKey] : null)}`);
+    errorDetails.push(`"archived" key matched: ${JSON.stringify(archivedKey ?? null)}; first-row value: ${JSON.stringify(archivedKey ? sample[archivedKey] : null)}`);
+  }
+
   // Build full SKU map across all products — catches duplicates regardless of product type
   const skuMap = dry ? new Map<string, SkuEntry>() : await fetchSkuMap();
 
