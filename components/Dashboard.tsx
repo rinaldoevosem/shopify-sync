@@ -77,12 +77,9 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Upload failed");
       setCsvMeta((prev) => ({ ...prev, [cat]: { fileName: json.fileName } }));
-      const diagMsg = json.diagnostic
-        ? ` · columns=${JSON.stringify(json.diagnostic.columns)} newWebsiteKey=${JSON.stringify(json.diagnostic.newWebsiteKey)} newWebsiteValue=${JSON.stringify(json.diagnostic.newWebsiteValue)}`
-        : "";
       setUploadStates((prev) => ({
         ...prev,
-        [cat]: { uploading: false, info: `${json.fileName} · ${json.eligible} of ${json.total} rows eligible${diagMsg}` },
+        [cat]: { uploading: false, info: `${json.fileName} · ${json.eligible} of ${json.total} rows eligible` },
       }));
     } catch (err) {
       setUploadStates((prev) => ({ ...prev, [cat]: { uploading: false } }));

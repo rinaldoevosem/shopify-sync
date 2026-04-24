@@ -36,32 +36,10 @@ export async function POST(
 
   await storeCsvData(cat, data, file.name);
 
-  // If nothing is eligible, return a diagnostic so we can see why the filter missed.
-  let diagnostic: Record<string, unknown> | undefined;
-  if (total > 0 && eligible === 0) {
-    const sample = data[0];
-    const cols = Object.keys(sample);
-    const newWebsiteKey = cols.find(
-      (k) => k.toLowerCase().replace(/\s+/g, " ").trim() === "new website"
-    );
-    const archivedKey = cols.find(
-      (k) => k.toLowerCase().replace(/\s+/g, " ").trim() === "archived"
-    );
-    diagnostic = {
-      columns: cols,
-      newWebsiteKey: newWebsiteKey ?? null,
-      newWebsiteValue: newWebsiteKey ? sample[newWebsiteKey] : null,
-      archivedKey: archivedKey ?? null,
-      archivedValue: archivedKey ? sample[archivedKey] : null,
-      sampleRowKeys: cols.slice(0, 10),
-    };
-  }
-
   return NextResponse.json({
     ok: true,
     fileName: file.name,
     total,
     eligible,
-    ...(diagnostic ? { diagnostic } : {}),
   });
 }
