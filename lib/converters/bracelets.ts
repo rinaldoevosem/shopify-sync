@@ -14,6 +14,19 @@ import {
   listMf,
 } from "./shared";
 
+function mapBraceletStyle(styleRaw: string | undefined): string[] {
+  const v = na(styleRaw);
+  if (!v) return [];
+  const vl = v.toLowerCase();
+  const result: string[] = [];
+  if (vl.includes("tennis")) result.push("Tennis");
+  if (vl.includes("bangle") || vl.includes("cuff")) result.push("Bangles and Cuffs");
+  if (vl.includes("chain") || vl.includes("link")) result.push("Chain and Links");
+  if (vl.includes("diamond")) result.push("Diamond");
+  if (vl.includes("gemstone")) result.push("Gemstone");
+  return result;
+}
+
 function buildTitle(row: AirtableRecord): string {
   const parts: string[] = [];
   const mc = mapMetalColor(row["Metal Color"]);
@@ -199,19 +212,24 @@ export function convertBracelet(row: AirtableRecord): ShopifyProductInput {
   const images = allMedia.filter((m) => m.mediaContentType === "IMAGE");
   const status = images.length > 0 ? "ACTIVE" : "DRAFT";
 
+  // Mirrors archive/fill_missing_metafields.py build_bracelet_fields — these are
+  // the metafield keys + types that the Stein Diamonds store has definitions for.
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),
-    listMf("metal_color", [mapMetalColor(row["Metal Color"])].filter(Boolean)),
-    listMf("metal_type", na(row["Metal Type"]) ? [na(row["Metal Type"])] : []),
     mf("diamond_shape", mapStoneShape(row["Stone Shape"])),
     mf("diamond_type", mapDiamondType(row["Stone Type"])),
     listMf("stone_type", na(row["Stone Type"]) ? na(row["Stone Type"])!.split(",").map((s) => s.trim()).filter(Boolean) : []),
+    listMf("bracelet_style", mapBraceletStyle(row["Style"])),
+    listMf("metal_type", na(row["Metal Type"]) ? [na(row["Metal Type"])] : []),
+    listMf("metal_color", [mapMetalColor(row["Metal Color"])].filter(Boolean)),
+    mf("tennis_style", na(row["Tennis Style"])),
+    mf("tennis_setting", na(row["Tennis Setting"])),
+    mf("prong_setting", na(row["Prong Setting"])),
     mf("stone_qty", singleLine(row["Stone Qty"])),
     mf("stone_total_weight", na(row["Stone Total Weight"])),
+    mf("length", na(row["Length"])),
     mf("details", na(row["Description"])),
     mf("metal_weight", na(row["Metal Weight"])),
-    mf("bracelet_style", na(row["Style"])),
-    mf("length", na(row["Length"])),
   ].filter((m) => m.value && m.value !== "[]");
 
   return {
