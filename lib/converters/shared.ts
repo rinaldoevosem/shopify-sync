@@ -89,9 +89,8 @@ export function mapDiamondType(stoneType: string | undefined): string {
   const st = na(stoneType);
   if (!st) return "";
   const lower = st.toLowerCase();
-  if (lower.includes("lab")) return "Lab Grown Diamond";
-  if (lower.includes("natural")) return "Natural Diamond";
-  if (lower.includes("gemstone")) return "Gemstone";
+  if (lower.includes("lab")) return "Lab-Grown";
+  if (lower.includes("natural")) return "Natural";
   return "";
 }
 

@@ -143,7 +143,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
     listMf("metal_type", na(row["Metal Type"]) ? [na(row["Metal Type"])] : []),
     mf("diamond_shape", mapStoneShape(row["Stone Shape"])),
     mf("diamond_type", mapDiamondType(row["Stone Type"])),
-    mf("stone_type", na(row["Stone Type"]) ? na(row["Stone Type"])!.split(",").map((s) => s.trim()).filter(Boolean).join(", ") : ""),
+    listMf("stone_type", na(row["Stone Type"]) ? na(row["Stone Type"])!.split(",").map((s) => s.trim()).filter(Boolean) : []),
     mf("stone_qty", singleLine(row["Stone Qty"])),
     mf("stone_total_weight", na(row["Stone Weight Total"])),
     mf("center_stone_weight", na(row["Center Stone Weight"])),
