@@ -44,8 +44,8 @@ function sleep(ms: number) {
 }
 
 const FETCH_SKU_MAP = `
-query listProducts($cursor: String, $query: String!) {
-  products(first: 250, after: $cursor, query: $query) {
+query listProducts($cursor: String) {
+  products(first: 250, after: $cursor) {
     edges {
       node {
         id
@@ -65,15 +65,12 @@ export interface SkuEntry {
   hasImages: boolean;
 }
 
-export async function fetchSkuMap(productType: string): Promise<Map<string, SkuEntry>> {
+export async function fetchSkuMap(): Promise<Map<string, SkuEntry>> {
   const map = new Map<string, SkuEntry>();
   let cursor: string | null = null;
 
   while (true) {
-    const data = await gql(FETCH_SKU_MAP, {
-      cursor,
-      query: `product_type:${productType}`,
-    });
+    const data = await gql(FETCH_SKU_MAP, { cursor });
     const products = (data.data as Record<string, unknown>).products as {
       edges: { node: { id: string; images: { edges: unknown[] }; variants: { edges: { node: { id: string; sku: string } }[] } } }[];
       pageInfo: { hasNextPage: boolean; endCursor: string };
@@ -92,7 +89,6 @@ export async function fetchSkuMap(productType: string): Promise<Map<string, SkuE
 
     if (!products.pageInfo.hasNextPage) break;
     cursor = products.pageInfo.endCursor;
-    await sleep(300);
   }
 
   return map;

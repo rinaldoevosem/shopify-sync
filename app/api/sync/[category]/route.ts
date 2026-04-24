@@ -4,6 +4,8 @@ import { fetchSkuMap, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
 
+export const maxDuration = 300;
+
 type Converter = (row: AirtableRecord) => ReturnType<typeof convertRing>;
 
 // Converter registry — extend as more category converters are ported
@@ -27,9 +29,6 @@ const PRODUCT_TYPE: Record<Category, string> = {
   "designer-jewelry": "Designer Jewelry",
 };
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
 
 export async function POST(
   req: NextRequest,
@@ -64,8 +63,8 @@ export async function POST(
   let errors = 0;
   const errorDetails: string[] = [];
 
-  // Build SKU map from Shopify (skip in dry run to avoid slow startup)
-  const skuMap = dry ? new Map<string, SkuEntry>() : await fetchSkuMap(PRODUCT_TYPE[cat]);
+  // Build full SKU map across all products — catches duplicates regardless of product type
+  const skuMap = dry ? new Map<string, SkuEntry>() : await fetchSkuMap();
 
   for (const row of eligible) {
     try {
@@ -92,7 +91,7 @@ export async function POST(
       errorDetails.push(`SKU ${sku}: ${err instanceof Error ? err.message : String(err)}`);
     }
 
-    if (!dry) await sleep(300);
+
   }
 
   const completedAt = new Date().toISOString();

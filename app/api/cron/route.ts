@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     let created = 0, updated = 0, skipped = records.length - eligible.length, errors = 0;
     const errorDetails: string[] = [];
 
-    const skuMap = await fetchSkuMap(PRODUCT_TYPE[cat]);
+    const skuMap = await fetchSkuMap();
 
     for (const row of eligible) {
       try {
