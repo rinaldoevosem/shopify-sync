@@ -5,6 +5,7 @@ import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
 import { convertBracelet } from "@/lib/converters/bracelets";
 import { convertEarring } from "@/lib/converters/earrings";
+import { convertNecklace } from "@/lib/converters/necklaces";
 
 export const maxDuration = 300;
 
@@ -19,6 +20,8 @@ function getConverter(cat: Category): Converter | null {
       return convertBracelet;
     case "earrings":
       return convertEarring;
+    case "necklaces":
+      return convertNecklace;
     default:
       return null;
   }
