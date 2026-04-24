@@ -9,7 +9,7 @@ import {
   mapStoneShape,
   mapDiamondType,
   buildHandle,
-  parseImageUrls,
+  parseMediaUrls,
   mf,
   listMf,
 } from "./shared";
@@ -135,8 +135,8 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const title = na(row["Shopify Title"]) || sku;
   const handle = buildHandle(sku, title);
 
-  const imageUrls = parseImageUrls(row["Image"]);
-  const status = imageUrls.length > 0 ? "ACTIVE" : "DRAFT";
+  const media = parseMediaUrls(row["Image"]);
+  const status = media.length > 0 ? "ACTIVE" : "DRAFT";
 
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),
@@ -172,8 +172,9 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
       },
     ],
     metafields,
-    media: imageUrls.map((url) => ({ originalSource: url, mediaContentType: "IMAGE" as const })),
+    media,
     seoDescription: buildSeoDesc(row),
+    templateSuffix: "rings-product-template",
   };
 }
 

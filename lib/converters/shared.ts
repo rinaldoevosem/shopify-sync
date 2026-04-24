@@ -11,7 +11,7 @@ export interface MetafieldInput {
 
 export interface MediaInput {
   originalSource: string;
-  mediaContentType: "IMAGE";
+  mediaContentType: "IMAGE" | "VIDEO";
 }
 
 export interface ShopifyProductInput {
@@ -27,6 +27,7 @@ export interface ShopifyProductInput {
   metafields: MetafieldInput[];
   media: MediaInput[];
   seoDescription: string;
+  templateSuffix?: string;
 }
 
 const VALID_METAL_COLORS = ["White Gold", "Yellow Gold", "Rose Gold", "Two-Tone", "Platinum"];
@@ -110,17 +111,19 @@ export function buildHandle(sku: string, title: string): string {
   return `${text}-${skuSlug}`;
 }
 
-export function parseImageUrls(cell: string | undefined): string[] {
+export function parseMediaUrls(cell: string | undefined): MediaInput[] {
   if (!cell) return [];
-  const urls: string[] = [];
+  const media: MediaInput[] = [];
   const matches = [...cell.matchAll(/\S+?\.\w+\s+\((https?:\/\/[^)]+)\)/g)];
   for (const m of matches) {
     const ext = m[0].split("(")[0].trim().split(".").pop()?.toLowerCase() ?? "";
     if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
-      urls.push(m[1]);
+      media.push({ originalSource: m[1], mediaContentType: "IMAGE" });
+    } else if (["mp4", "mov", "webm", "m4v"].includes(ext)) {
+      media.push({ originalSource: m[1], mediaContentType: "VIDEO" });
     }
   }
-  return urls;
+  return media;
 }
 
 export function mf(key: string, value: string, type = "single_line_text_field"): MetafieldInput {

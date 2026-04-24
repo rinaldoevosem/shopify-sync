@@ -178,6 +178,7 @@ export async function upsertProduct(
     status: product.status,
     tags: product.tags,
     seo: { description: product.seoDescription },
+    ...(product.templateSuffix ? { templateSuffix: product.templateSuffix } : {}),
   };
 
   let productId: string;
