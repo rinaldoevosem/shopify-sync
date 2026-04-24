@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Papa from "papaparse";
 import { storeCsvData, Category, CATEGORIES } from "@/lib/kv";
+import { shouldSkip } from "@/lib/converters/shared";
 
 export async function POST(
   req: NextRequest,
@@ -31,9 +32,7 @@ export async function POST(
 
   // Count how many rows will be processed vs skipped
   const total = data.length;
-  const eligible = data.filter(
-    (row) => row["New website"]?.trim() === "checked"
-  ).length;
+  const eligible = data.filter((row) => !shouldSkip(row)).length;
 
   await storeCsvData(cat, data, file.name);
 

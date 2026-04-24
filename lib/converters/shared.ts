@@ -41,8 +41,21 @@ export function na(val: string | undefined): string {
   return v;
 }
 
+// Match any column whose normalized name (lowercased, whitespace collapsed) is "new website".
+// Bracelets CSV uses "New Website " (trailing space), Rings uses "New website" — tolerate both.
+function getFlag(row: AirtableRecord, target: string): string {
+  const want = target.toLowerCase().replace(/\s+/g, " ").trim();
+  for (const key of Object.keys(row)) {
+    if (key.toLowerCase().replace(/\s+/g, " ").trim() === want) {
+      return (row[key] ?? "").trim();
+    }
+  }
+  return "";
+}
+
 export function shouldSkip(row: AirtableRecord): boolean {
-  return row["New website"]?.trim() !== "checked";
+  if (getFlag(row, "archived").toLowerCase() === "checked") return true;
+  return getFlag(row, "new website").toLowerCase() !== "checked";
 }
 
 export function cleanPrice(val: string | undefined): string {
