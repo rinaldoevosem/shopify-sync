@@ -41,12 +41,16 @@ export function na(val: string | undefined): string {
   return v;
 }
 
-// Match any column whose normalized name (lowercased, whitespace collapsed) is "new website".
-// Bracelets CSV uses "New Website " (trailing space), Rings uses "New website" — tolerate both.
-function getFlag(row: AirtableRecord, target: string): string {
-  const want = target.toLowerCase().replace(/\s+/g, " ").trim();
+// Match any column whose normalized name (lowercased, whitespace collapsed) matches one
+// of the target spellings. Rings uses "New website", Bracelets "New Website " (trailing
+// space), Earrings "New Wesbite" (typo — missing b). All three must pass.
+function getFlag(row: AirtableRecord, targets: string | string[]): string {
+  const wants = (Array.isArray(targets) ? targets : [targets]).map((t) =>
+    t.toLowerCase().replace(/\s+/g, " ").trim(),
+  );
   for (const key of Object.keys(row)) {
-    if (key.toLowerCase().replace(/\s+/g, " ").trim() === want) {
+    const norm = key.toLowerCase().replace(/\s+/g, " ").trim();
+    if (wants.includes(norm)) {
       return (row[key] ?? "").trim();
     }
   }
@@ -55,7 +59,7 @@ function getFlag(row: AirtableRecord, target: string): string {
 
 export function shouldSkip(row: AirtableRecord): boolean {
   if (getFlag(row, "archived").toLowerCase() === "checked") return true;
-  return getFlag(row, "new website").toLowerCase() !== "checked";
+  return getFlag(row, ["new website", "new wesbite"]).toLowerCase() !== "checked";
 }
 
 export function cleanPrice(val: string | undefined): string {

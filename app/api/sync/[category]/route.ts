@@ -4,6 +4,7 @@ import { fetchSkuMap, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
 import { convertBracelet } from "@/lib/converters/bracelets";
+import { convertEarring } from "@/lib/converters/earrings";
 
 export const maxDuration = 300;
 
@@ -16,6 +17,8 @@ function getConverter(cat: Category): Converter | null {
       return convertRing;
     case "bracelets":
       return convertBracelet;
+    case "earrings":
+      return convertEarring;
     default:
       return null;
   }
