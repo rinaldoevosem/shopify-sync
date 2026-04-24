@@ -3,6 +3,7 @@ import { getCsvData, appendLog, getConfig, saveConfig, storeVideoQueue, VideoQue
 import { fetchSkuMap, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
+import { convertBracelet } from "@/lib/converters/bracelets";
 
 export const maxDuration = 300;
 
@@ -13,6 +14,8 @@ function getConverter(cat: Category): Converter | null {
   switch (cat) {
     case "rings":
       return convertRing;
+    case "bracelets":
+      return convertBracelet;
     default:
       return null;
   }
