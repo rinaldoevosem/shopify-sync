@@ -135,8 +135,9 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const title = na(row["Shopify Title"]) || sku;
   const handle = buildHandle(sku, title);
 
-  const media = parseMediaUrls(row["Image"]);
-  const status = media.length > 0 ? "ACTIVE" : "DRAFT";
+  // Shopify requires staged uploads for videos — only images can be fetched from Airtable URLs directly
+  const images = parseMediaUrls(row["Image"]).filter((m) => m.mediaContentType === "IMAGE");
+  const status = images.length > 0 ? "ACTIVE" : "DRAFT";
 
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),
@@ -172,7 +173,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
       },
     ],
     metafields,
-    media,
+    media: images,
     seoDescription: buildSeoDesc(row),
     templateSuffix: "rings-product-template",
   };
