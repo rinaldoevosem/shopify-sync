@@ -262,5 +262,6 @@ export function convertNecklace(row: AirtableRecord): ShopifyProductInput {
     metafields,
     media: allMedia,
     seoDescription: buildSeoDesc(row),
+    templateSuffix: "jewelry-product-template",
   };
 }

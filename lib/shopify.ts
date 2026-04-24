@@ -125,6 +125,25 @@ mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
   }
 }`;
 
+const LIST_PUBLICATIONS = `
+query { publications(first: 20) { edges { node { id name } } } }`;
+
+const PUBLISHABLE_PUBLISH = `
+mutation publishablePublish($id: ID!, $input: [PublicationInput!]!) {
+  publishablePublish(id: $id, input: $input) {
+    userErrors { field message }
+  }
+}`;
+
+export async function fetchOnlineStorePublicationId(): Promise<string | null> {
+  const data = await gql(LIST_PUBLICATIONS);
+  const publications = (data.data as Record<string, unknown>).publications as {
+    edges: { node: { id: string; name: string } }[];
+  };
+  const match = publications.edges.find((e) => e.node.name === "Online Store");
+  return match?.node.id ?? null;
+}
+
 const PRODUCT_CREATE_MEDIA = `
 mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
   productCreateMedia(productId: $productId, media: $media) {
@@ -237,7 +256,8 @@ interface UpsertResult {
 export async function upsertProduct(
   product: ShopifyProductInput,
   existingEntry?: SkuEntry,
-  dry = false
+  dry = false,
+  onlineStorePublicationId?: string | null,
 ): Promise<UpsertResult> {
   if (dry) {
     return { action: existingEntry ? "updated" : "created", productId: existingEntry?.productGid ?? "dry-run", errors: [] };
@@ -362,6 +382,20 @@ export async function upsertProduct(
     };
     if (mfResult.userErrors.length > 0) {
       errors.push(...mfResult.userErrors.map((e) => `metafield ${e.field}: ${e.message}`));
+    }
+  }
+
+  // Publish to Online Store channel — idempotent, safe on already-published products
+  if (onlineStorePublicationId && productId) {
+    const pubData = await gql(PUBLISHABLE_PUBLISH, {
+      id: productId,
+      input: [{ publicationId: onlineStorePublicationId }],
+    });
+    const pubResult = (pubData.data as Record<string, unknown>).publishablePublish as {
+      userErrors: { field: string; message: string }[];
+    };
+    if (pubResult.userErrors.length > 0) {
+      errors.push(...pubResult.userErrors.map((e) => `publish: ${e.message}`));
     }
   }
 

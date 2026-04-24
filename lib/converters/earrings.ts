@@ -244,5 +244,6 @@ export function convertEarring(row: AirtableRecord): ShopifyProductInput {
     metafields,
     media: allMedia,
     seoDescription: buildSeoDesc(row),
+    templateSuffix: "jewelry-product-template",
   };
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCsvData, appendLog, getConfig, saveConfig, storeVideoQueue, VideoQueueEntry, Category, CATEGORIES } from "@/lib/kv";
-import { fetchSkuMap, upsertProduct, SkuEntry } from "@/lib/shopify";
+import { fetchSkuMap, fetchOnlineStorePublicationId, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
 import { convertBracelet } from "@/lib/converters/bracelets";
@@ -73,8 +73,11 @@ export async function POST(
   const errorDetails: string[] = [];
   const videoQueue: VideoQueueEntry[] = [];
 
-  // Build full SKU map across all products — catches duplicates regardless of product type
-  const skuMap = dry ? new Map<string, SkuEntry>() : await fetchSkuMap();
+  // Build full SKU map across all products — catches duplicates regardless of product type.
+  // Fetch the Online Store publication id in parallel so every upsert can publish to the channel.
+  const [skuMap, onlineStorePublicationId] = dry
+    ? [new Map<string, SkuEntry>(), null as string | null]
+    : await Promise.all([fetchSkuMap(), fetchOnlineStorePublicationId()]);
 
   for (const row of eligible) {
     try {
@@ -85,7 +88,7 @@ export async function POST(
       }
 
       const existingEntry = skuMap.get(product.sku);
-      const result = await upsertProduct(product, existingEntry, dry);
+      const result = await upsertProduct(product, existingEntry, dry, onlineStorePublicationId);
 
       if (result.errors.length > 0) {
         errors++;
