@@ -88,9 +88,16 @@ export function mapStoneShape(stoneShape: string | undefined): string {
 export function mapDiamondType(stoneType: string | undefined): string {
   const st = na(stoneType);
   if (!st) return "";
-  if (st.toLowerCase().includes("natural")) return "Natural";
-  if (st.toLowerCase().includes("lab")) return "Lab-Grown";
+  const lower = st.toLowerCase();
+  if (lower.includes("lab")) return "Lab Grown Diamond";
+  if (lower.includes("natural")) return "Natural Diamond";
+  if (lower.includes("gemstone")) return "Gemstone";
   return "";
+}
+
+export function singleLine(val: string | undefined): string {
+  if (!val) return "";
+  return val.replace(/[\r\n]+/g, ", ").trim();
 }
 
 export function buildHandle(sku: string, title: string): string {
