@@ -133,6 +133,85 @@ mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
   }
 }`;
 
+const STAGED_UPLOADS_CREATE = `
+mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
+  stagedUploadsCreate(input: $input) {
+    stagedTargets {
+      url
+      resourceUrl
+      parameters { name value }
+    }
+    userErrors { field message }
+  }
+}`;
+
+const VIDEO_MIME: Record<string, string> = {
+  mov: "video/quicktime",
+  mp4: "video/mp4",
+  webm: "video/webm",
+  m4v: "video/x-m4v",
+};
+
+export async function uploadVideoToProduct(productGid: string, videoUrl: string, filename: string): Promise<string[]> {
+  const errors: string[] = [];
+  const ext = filename.split(".").pop()?.toLowerCase() ?? "mov";
+  const mimeType = VIDEO_MIME[ext] ?? "video/quicktime";
+
+  // Get file size from HEAD request (optional but helps Shopify)
+  let fileSize: string | undefined;
+  try {
+    const head = await fetch(videoUrl, { method: "HEAD" });
+    const cl = head.headers.get("content-length");
+    if (cl) fileSize = cl;
+  } catch { /* skip */ }
+
+  // Get staged upload target
+  const stageData = await gql(STAGED_UPLOADS_CREATE, {
+    input: [{ filename, mimeType, resource: "PRODUCT_MEDIA", httpMethod: "POST", ...(fileSize ? { fileSize } : {}) }],
+  });
+  const staged = (stageData.data as Record<string, unknown>).stagedUploadsCreate as {
+    stagedTargets: { url: string; resourceUrl: string; parameters: { name: string; value: string }[] }[];
+    userErrors: { field: string; message: string }[];
+  };
+  if (staged.userErrors.length > 0) {
+    errors.push(...staged.userErrors.map((e) => e.message));
+    return errors;
+  }
+  const target = staged.stagedTargets[0];
+
+  // Download video from Airtable
+  const videoRes = await fetch(videoUrl);
+  if (!videoRes.ok) {
+    errors.push(`Video download failed: ${videoRes.status}`);
+    return errors;
+  }
+  const videoBuffer = await videoRes.arrayBuffer();
+
+  // Upload to Shopify's staged URL
+  const form = new FormData();
+  for (const p of target.parameters) form.append(p.name, p.value);
+  form.append("file", new Blob([videoBuffer], { type: mimeType }), filename);
+  const uploadRes = await fetch(target.url, { method: "POST", body: form });
+  if (!uploadRes.ok) {
+    errors.push(`Staged upload failed: ${uploadRes.status}`);
+    return errors;
+  }
+
+  // Attach to product
+  const mediaData = await gql(PRODUCT_CREATE_MEDIA, {
+    productId: productGid,
+    media: [{ originalSource: target.resourceUrl, mediaContentType: "VIDEO" }],
+  });
+  const mediaResult = (mediaData.data as Record<string, unknown>).productCreateMedia as {
+    userErrors: { field: string; message: string }[];
+  };
+  if (mediaResult.userErrors.length > 0) {
+    errors.push(...mediaResult.userErrors.map((e) => e.message));
+  }
+
+  return errors;
+}
+
 const VARIANT_BULK_UPDATE = `
 mutation productVariantsBulkUpdate($productId: ID!, $variants: [ProductVariantsBulkInput!]!) {
   productVariantsBulkUpdate(productId: $productId, variants: $variants) {
@@ -183,7 +262,9 @@ export async function upsertProduct(
     // Create product — no variants in input; Shopify auto-creates default variant
     const data = await gql(PRODUCT_CREATE, {
       input: baseInput,
-      media: product.media,
+      media: product.media
+        .filter((m) => m.mediaContentType === "IMAGE")
+        .map((m) => ({ originalSource: m.originalSource, mediaContentType: m.mediaContentType })),
     });
     const result = (data.data as Record<string, unknown>).productCreate as {
       product: {
@@ -242,10 +323,13 @@ export async function upsertProduct(
     productId = productGid;
 
     // Add images only if the product has none — avoids duplicates on repeated syncs
-    if (!existingEntry.hasImages && product.media.length > 0) {
+    const imageMedia = product.media
+      .filter((m) => m.mediaContentType === "IMAGE")
+      .map((m) => ({ originalSource: m.originalSource, mediaContentType: m.mediaContentType }));
+    if (!existingEntry.hasImages && imageMedia.length > 0) {
       const mediaData = await gql(PRODUCT_CREATE_MEDIA, {
         productId,
-        media: product.media,
+        media: imageMedia,
       });
       const mediaResult = (mediaData.data as Record<string, unknown>).productCreateMedia as {
         userErrors: { field: string; message: string }[];

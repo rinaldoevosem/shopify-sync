@@ -1,10 +1,14 @@
 export const dynamic = "force-dynamic";
 
-import { getAllConfigs, getAllLogs, getCsvData, CATEGORIES } from "@/lib/kv";
+import { getAllConfigs, getAllLogs, getCsvData, getAllVideoQueueCounts, CATEGORIES } from "@/lib/kv";
 import { Dashboard } from "@/components/Dashboard";
 
 export default async function Home() {
-  const [configs, logs] = await Promise.all([getAllConfigs(), getAllLogs()]);
+  const [configs, logs, videoQueueCounts] = await Promise.all([
+    getAllConfigs(),
+    getAllLogs(),
+    getAllVideoQueueCounts(),
+  ]);
 
   const csvMeta: Record<string, { fileName?: string }> = {};
   await Promise.all(
@@ -14,5 +18,5 @@ export default async function Home() {
     })
   );
 
-  return <Dashboard initialConfigs={configs} initialLogs={logs} csvMeta={csvMeta} />;
+  return <Dashboard initialConfigs={configs} initialLogs={logs} csvMeta={csvMeta} videoQueueCounts={videoQueueCounts} />;
 }

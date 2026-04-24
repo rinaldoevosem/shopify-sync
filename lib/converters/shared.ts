@@ -12,6 +12,7 @@ export interface MetafieldInput {
 export interface MediaInput {
   originalSource: string;
   mediaContentType: "IMAGE" | "VIDEO";
+  filename: string;
 }
 
 export interface ShopifyProductInput {
@@ -114,13 +115,15 @@ export function buildHandle(sku: string, title: string): string {
 export function parseMediaUrls(cell: string | undefined): MediaInput[] {
   if (!cell) return [];
   const media: MediaInput[] = [];
-  const matches = [...cell.matchAll(/\S+?\.\w+\s+\((https?:\/\/[^)]+)\)/g)];
+  const matches = [...cell.matchAll(/(\S+?\.\w+)\s+\((https?:\/\/[^)]+)\)/g)];
   for (const m of matches) {
-    const ext = m[0].split("(")[0].trim().split(".").pop()?.toLowerCase() ?? "";
+    const filename = m[1];
+    const url = m[2];
+    const ext = filename.split(".").pop()?.toLowerCase() ?? "";
     if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) {
-      media.push({ originalSource: m[1], mediaContentType: "IMAGE" });
+      media.push({ originalSource: url, mediaContentType: "IMAGE", filename });
     } else if (["mp4", "mov", "webm", "m4v"].includes(ext)) {
-      media.push({ originalSource: m[1], mediaContentType: "VIDEO" });
+      media.push({ originalSource: url, mediaContentType: "VIDEO", filename });
     }
   }
   return media;

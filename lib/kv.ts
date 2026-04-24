@@ -55,7 +55,34 @@ export interface SyncLogEntry {
 const CONFIG_KEY = (cat: Category) => `config:${cat}`;
 const CSV_KEY = (cat: Category) => `csv:${cat}`;
 const LOG_KEY = (cat: Category) => `log:${cat}`;
+const VIDEO_QUEUE_KEY = (cat: Category) => `video-queue:${cat}`;
 const MAX_LOG_ENTRIES = 20;
+
+export interface VideoQueueEntry {
+  productGid: string;
+  sku: string;
+  videoUrls: string[];
+  filenames: string[];
+}
+
+export async function storeVideoQueue(cat: Category, entries: VideoQueueEntry[]): Promise<void> {
+  await kv.set(VIDEO_QUEUE_KEY(cat), entries);
+}
+
+export async function getVideoQueue(cat: Category): Promise<VideoQueueEntry[]> {
+  return (await kv.get<VideoQueueEntry[]>(VIDEO_QUEUE_KEY(cat))) ?? [];
+}
+
+export async function getAllVideoQueueCounts(): Promise<Record<Category, number>> {
+  const result = {} as Record<Category, number>;
+  await Promise.all(
+    CATEGORIES.map(async ({ id }) => {
+      const queue = await getVideoQueue(id);
+      result[id] = queue.reduce((sum, e) => sum + e.videoUrls.length, 0);
+    })
+  );
+  return result;
+}
 
 export async function getConfig(cat: Category): Promise<CategoryConfig> {
   const stored = await kv.get<CategoryConfig>(CONFIG_KEY(cat));

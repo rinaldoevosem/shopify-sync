@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllConfigs, saveAllConfigs, getAllLogs, Category, getCsvData, CATEGORIES } from "@/lib/kv";
+import { getAllConfigs, saveAllConfigs, getAllLogs, getAllVideoQueueCounts, Category, getCsvData, CATEGORIES } from "@/lib/kv";
 
 export async function GET() {
-  const [configs, logs] = await Promise.all([getAllConfigs(), getAllLogs()]);
+  const [configs, logs, videoQueueCounts] = await Promise.all([
+    getAllConfigs(),
+    getAllLogs(),
+    getAllVideoQueueCounts(),
+  ]);
 
   // Attach csv file names and eligible counts
   const csvMeta: Record<string, { fileName?: string; eligible?: number }> = {};
@@ -15,7 +19,7 @@ export async function GET() {
     })
   );
 
-  return NextResponse.json({ configs, logs, csvMeta });
+  return NextResponse.json({ configs, logs, csvMeta, videoQueueCounts });
 }
 
 export async function PUT(req: NextRequest) {

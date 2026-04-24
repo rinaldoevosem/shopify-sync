@@ -135,8 +135,8 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const title = na(row["Shopify Title"]) || sku;
   const handle = buildHandle(sku, title);
 
-  // Shopify requires staged uploads for videos — only images can be fetched from Airtable URLs directly
-  const images = parseMediaUrls(row["Image"]).filter((m) => m.mediaContentType === "IMAGE");
+  const allMedia = parseMediaUrls(row["Image"]);
+  const images = allMedia.filter((m) => m.mediaContentType === "IMAGE");
   const status = images.length > 0 ? "ACTIVE" : "DRAFT";
 
   const metafields = [
@@ -173,7 +173,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
       },
     ],
     metafields,
-    media: images,
+    media: allMedia,
     seoDescription: buildSeoDesc(row),
     templateSuffix: "rings-product-template",
   };

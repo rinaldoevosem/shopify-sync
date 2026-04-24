@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCsvData, appendLog, getConfig, saveConfig, Category, CATEGORIES } from "@/lib/kv";
+import { getCsvData, appendLog, getConfig, saveConfig, storeVideoQueue, VideoQueueEntry, Category, CATEGORIES } from "@/lib/kv";
 import { fetchSkuMap, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
 import { convertRing } from "@/lib/converters/rings";
@@ -62,6 +62,7 @@ export async function POST(
   let skipped = records.length - eligible.length;
   let errors = 0;
   const errorDetails: string[] = [];
+  const videoQueue: VideoQueueEntry[] = [];
 
   // Build full SKU map across all products — catches duplicates regardless of product type
   const skuMap = dry ? new Map<string, SkuEntry>() : await fetchSkuMap();
@@ -85,13 +86,22 @@ export async function POST(
       } else {
         updated++;
       }
+
+      // Queue videos for separate processing — Shopify requires staged uploads for video
+      const videoMedia = product.media.filter((m) => m.mediaContentType === "VIDEO");
+      if (videoMedia.length > 0 && result.productId && result.productId !== "dry-run") {
+        videoQueue.push({
+          productGid: result.productId,
+          sku: product.sku,
+          videoUrls: videoMedia.map((m) => m.originalSource),
+          filenames: videoMedia.map((m) => m.filename),
+        });
+      }
     } catch (err) {
       errors++;
       const sku = row["Item No."] ?? "unknown";
       errorDetails.push(`SKU ${sku}: ${err instanceof Error ? err.message : String(err)}`);
     }
-
-
   }
 
   const completedAt = new Date().toISOString();
@@ -101,7 +111,10 @@ export async function POST(
     await appendLog(cat, logEntry);
     const config = await getConfig(cat);
     await saveConfig(cat, { ...config, lastRunAt: completedAt });
+    if (videoQueue.length > 0) {
+      await storeVideoQueue(cat, videoQueue);
+    }
   }
 
-  return NextResponse.json(logEntry);
+  return NextResponse.json({ ...logEntry, videosQueued: videoQueue.length });
 }
