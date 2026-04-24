@@ -49,6 +49,7 @@ query listProducts($cursor: String, $query: String!) {
     edges {
       node {
         id
+        images(first: 1) { edges { node { id } } }
         variants(first: 1) {
           edges { node { id sku } }
         }
@@ -61,6 +62,7 @@ query listProducts($cursor: String, $query: String!) {
 export interface SkuEntry {
   productGid: string;
   variantGid: string;
+  hasImages: boolean;
 }
 
 export async function fetchSkuMap(productType: string): Promise<Map<string, SkuEntry>> {
@@ -73,14 +75,18 @@ export async function fetchSkuMap(productType: string): Promise<Map<string, SkuE
       query: `product_type:${productType}`,
     });
     const products = (data.data as Record<string, unknown>).products as {
-      edges: { node: { id: string; variants: { edges: { node: { id: string; sku: string } }[] } } }[];
+      edges: { node: { id: string; images: { edges: unknown[] }; variants: { edges: { node: { id: string; sku: string } }[] } } }[];
       pageInfo: { hasNextPage: boolean; endCursor: string };
     };
 
     for (const { node } of products.edges) {
       const variantEdge = node.variants.edges[0]?.node;
       if (variantEdge?.sku) {
-        map.set(variantEdge.sku, { productGid: node.id, variantGid: variantEdge.id });
+        map.set(variantEdge.sku, {
+          productGid: node.id,
+          variantGid: variantEdge.id,
+          hasImages: node.images.edges.length > 0,
+        });
       }
     }
 
@@ -119,6 +125,14 @@ const METAFIELDS_SET = `
 mutation metafieldsSet($metafields: [MetafieldsSetInput!]!) {
   metafieldsSet(metafields: $metafields) {
     metafields { key }
+    userErrors { field message }
+  }
+}`;
+
+const PRODUCT_CREATE_MEDIA = `
+mutation productCreateMedia($productId: ID!, $media: [CreateMediaInput!]!) {
+  productCreateMedia(productId: $productId, media: $media) {
+    media { id }
     userErrors { field message }
   }
 }`;
@@ -229,6 +243,20 @@ export async function upsertProduct(
       errors.push(...result.userErrors.map((e) => `${e.field}: ${e.message}`));
     }
     productId = productGid;
+
+    // Add images only if the product has none — avoids duplicates on repeated syncs
+    if (!existingEntry.hasImages && product.media.length > 0) {
+      const mediaData = await gql(PRODUCT_CREATE_MEDIA, {
+        productId,
+        media: product.media,
+      });
+      const mediaResult = (mediaData.data as Record<string, unknown>).productCreateMedia as {
+        userErrors: { field: string; message: string }[];
+      };
+      if (mediaResult.userErrors.length > 0) {
+        errors.push(...mediaResult.userErrors.map((e) => `media: ${e.message}`));
+      }
+    }
 
     // Update variant price
     const varData = await gql(VARIANT_BULK_UPDATE, {

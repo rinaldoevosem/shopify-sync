@@ -136,6 +136,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const handle = buildHandle(sku, title);
 
   const imageUrls = parseImageUrls(row["Image"]);
+  const status = imageUrls.length > 0 ? "ACTIVE" : "DRAFT";
 
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),
@@ -161,7 +162,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
     descriptionHtml: buildBody(row),
     vendor: "Stein Diamonds",
     productType: "Rings",
-    status: "ACTIVE",
+    status,
     tags: buildTags(row),
     variants: [
       {
