@@ -38,7 +38,7 @@ export interface CategoryConfig {
   scheduleEnabled: boolean;
   scheduleTime: string; // "HH:MM"
   lastRunAt?: string;   // ISO date string
-  csvFileName?: string; // last uploaded file name
+  airtableUrl?: string; // Airtable table URL (appXXX/tblXXX[/viwXXX])
 }
 
 export interface SyncLogEntry {
@@ -53,7 +53,6 @@ export interface SyncLogEntry {
 }
 
 const CONFIG_KEY = (cat: Category) => `config:${cat}`;
-const CSV_KEY = (cat: Category) => `csv:${cat}`;
 const LOG_KEY = (cat: Category) => `log:${cat}`;
 const VIDEO_QUEUE_KEY = (cat: Category) => `video-queue:${cat}`;
 const MAX_LOG_ENTRIES = 20;
@@ -110,16 +109,6 @@ export async function saveAllConfigs(configs: Partial<Record<Category, Partial<C
       await saveConfig(cat as Category, { ...current, ...partial });
     })
   );
-}
-
-export async function storeCsvData(cat: Category, records: Record<string, string>[], fileName: string): Promise<void> {
-  await kv.set(CSV_KEY(cat), { records, fileName });
-  const config = await getConfig(cat);
-  await saveConfig(cat, { ...config, csvFileName: fileName });
-}
-
-export async function getCsvData(cat: Category): Promise<{ records: Record<string, string>[]; fileName: string } | null> {
-  return kv.get(CSV_KEY(cat));
 }
 
 export async function appendLog(cat: Category, entry: SyncLogEntry): Promise<void> {

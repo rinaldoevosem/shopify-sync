@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCsvData, appendLog, getConfig, saveConfig, storeVideoQueue, VideoQueueEntry, Category, CATEGORIES } from "@/lib/kv";
+import { appendLog, getConfig, saveConfig, storeVideoQueue, VideoQueueEntry, Category, CATEGORIES } from "@/lib/kv";
 import { fetchSkuMap, fetchOnlineStorePublicationId, upsertProduct, SkuEntry } from "@/lib/shopify";
 import { shouldSkip, AirtableRecord } from "@/lib/converters/shared";
+import { parseAirtableUrl, fetchAirtableRecords, flattenRecord } from "@/lib/airtable";
 import { convertRing } from "@/lib/converters/rings";
 import { convertBracelet } from "@/lib/converters/bracelets";
 import { convertEarring } from "@/lib/converters/earrings";
@@ -57,12 +58,27 @@ export async function POST(
     return NextResponse.json({ error: `Converter for '${cat}' not yet implemented` }, { status: 501 });
   }
 
-  const csvData = await getCsvData(cat);
-  if (!csvData) {
-    return NextResponse.json({ error: "No CSV data uploaded for this category" }, { status: 404 });
+  const config = await getConfig(cat);
+  const airtableUrl = config.airtableUrl?.trim();
+  if (!airtableUrl) {
+    return NextResponse.json(
+      { error: "Airtable URL not configured for this category" },
+      { status: 400 },
+    );
   }
 
-  const { records } = csvData;
+  let records: AirtableRecord[];
+  try {
+    const { baseId, tableId, viewId } = parseAirtableUrl(airtableUrl);
+    const raw = await fetchAirtableRecords(baseId, tableId, viewId);
+    records = raw.map(flattenRecord);
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Airtable fetch failed: ${err instanceof Error ? err.message : String(err)}` },
+      { status: 502 },
+    );
+  }
+
   const eligible = records.filter((row) => !shouldSkip(row));
 
   const startedAt = new Date().toISOString();
@@ -121,7 +137,6 @@ export async function POST(
 
   if (!dry) {
     await appendLog(cat, logEntry);
-    const config = await getConfig(cat);
     await saveConfig(cat, { ...config, lastRunAt: completedAt });
     if (videoQueue.length > 0) {
       await storeVideoQueue(cat, videoQueue);

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAllConfigs, saveAllConfigs, getAllLogs, getAllVideoQueueCounts, Category, getCsvData, CATEGORIES } from "@/lib/kv";
+import { getAllConfigs, saveAllConfigs, getAllLogs, getAllVideoQueueCounts, Category } from "@/lib/kv";
+import { parseAirtableUrl } from "@/lib/airtable";
 
 export async function GET() {
   const [configs, logs, videoQueueCounts] = await Promise.all([
@@ -8,22 +9,30 @@ export async function GET() {
     getAllVideoQueueCounts(),
   ]);
 
-  // Attach csv file names and eligible counts
-  const csvMeta: Record<string, { fileName?: string; eligible?: number }> = {};
-  await Promise.all(
-    CATEGORIES.map(async ({ id }) => {
-      const data = await getCsvData(id);
-      if (data) {
-        csvMeta[id] = { fileName: data.fileName };
-      }
-    })
-  );
-
-  return NextResponse.json({ configs, logs, csvMeta, videoQueueCounts });
+  return NextResponse.json({ configs, logs, videoQueueCounts });
 }
 
 export async function PUT(req: NextRequest) {
-  const body = await req.json() as Record<Category, { scheduleEnabled: boolean; scheduleTime: string }>;
+  const body = await req.json() as Record<Category, {
+    scheduleEnabled: boolean;
+    scheduleTime: string;
+    airtableUrl?: string;
+  }>;
+
+  for (const [cat, cfg] of Object.entries(body)) {
+    const url = cfg.airtableUrl?.trim();
+    if (url) {
+      try {
+        parseAirtableUrl(url);
+      } catch (err) {
+        return NextResponse.json(
+          { error: `Invalid Airtable URL for ${cat}: ${err instanceof Error ? err.message : String(err)}` },
+          { status: 400 },
+        );
+      }
+    }
+  }
+
   await saveAllConfigs(body);
   return NextResponse.json({ ok: true });
 }

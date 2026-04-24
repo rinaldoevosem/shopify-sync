@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
   Page,
   Layout,
@@ -14,19 +14,13 @@ import {
   Divider,
   Toast,
   Frame,
-  Spinner,
   Checkbox,
 } from "@shopify/polaris";
 import { Category, CATEGORIES, CategoryConfig, SyncLogEntry } from "@/lib/kv";
 
-interface CsvMeta {
-  fileName?: string;
-}
-
 interface Props {
   initialConfigs: Record<Category, CategoryConfig>;
   initialLogs: SyncLogEntry[];
-  csvMeta: Record<string, CsvMeta>;
   videoQueueCounts: Record<Category, number>;
 }
 
@@ -35,12 +29,10 @@ interface SyncState {
   error?: string;
 }
 
-export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta, videoQueueCounts: initialVideoQueueCounts }: Props) {
+export function Dashboard({ initialConfigs, initialLogs, videoQueueCounts: initialVideoQueueCounts }: Props) {
   const [configs, setConfigs] = useState(initialConfigs);
   const [logs, setLogs] = useState(initialLogs);
-  const [csvMeta, setCsvMeta] = useState(initialCsvMeta);
   const [syncStates, setSyncStates] = useState<Record<string, SyncState>>({});
-  const [uploadStates, setUploadStates] = useState<Record<string, { uploading: boolean; info?: string }>>({});
   const [videoQueueCounts, setVideoQueueCounts] = useState<Record<Category, number>>(initialVideoQueueCounts);
   const [videoUploadStates, setVideoUploadStates] = useState<Record<string, { running: boolean }>>({});
   const [saving, setSaving] = useState(false);
@@ -59,31 +51,13 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(configs),
       });
-      if (!res.ok) throw new Error("Save failed");
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error ?? "Save failed");
       setToast({ content: "Settings saved" });
-    } catch {
-      setToast({ content: "Failed to save settings", error: true });
+    } catch (err) {
+      setToast({ content: `Failed to save: ${err instanceof Error ? err.message : "error"}`, error: true });
     } finally {
       setSaving(false);
-    }
-  };
-
-  const handleFileUpload = async (cat: Category, file: File) => {
-    setUploadStates((prev) => ({ ...prev, [cat]: { uploading: true } }));
-    const form = new FormData();
-    form.append("file", file);
-    try {
-      const res = await fetch(`/api/upload/${cat}`, { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
-      setCsvMeta((prev) => ({ ...prev, [cat]: { fileName: json.fileName } }));
-      setUploadStates((prev) => ({
-        ...prev,
-        [cat]: { uploading: false, info: `${json.fileName} · ${json.eligible} of ${json.total} rows eligible` },
-      }));
-    } catch (err) {
-      setUploadStates((prev) => ({ ...prev, [cat]: { uploading: false } }));
-      setToast({ content: `Upload failed: ${err instanceof Error ? err.message : "error"}`, error: true });
     }
   };
 
@@ -129,7 +103,8 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
   const toggleError = (i: number) => {
     setExpandedErrors((prev) => {
       const next = new Set(prev);
-      next.has(i) ? next.delete(i) : next.add(i);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
       return next;
     });
   };
@@ -153,11 +128,9 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
                 {CATEGORIES.map(({ id: cat, label }) => {
                   const config = configs[cat];
                   const syncState = syncStates[cat];
-                  const uploadState = uploadStates[cat];
-                  const meta = csvMeta[cat];
-
                   const videoCount = videoQueueCounts[cat] ?? 0;
                   const videoUploadState = videoUploadStates[cat];
+                  const hasUrl = !!config.airtableUrl?.trim();
 
                   return (
                     <div key={cat}>
@@ -174,48 +147,17 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
                         </InlineStack>
 
                         <InlineStack gap="300" blockAlign="end" wrap={false}>
-                          {/* File upload */}
                           <div style={{ flex: 1 }}>
-                            <InlineStack gap="200" blockAlign="center">
-                              <label
-                                style={{
-                                  display: "inline-flex",
-                                  alignItems: "center",
-                                  gap: "8px",
-                                  padding: "6px 12px",
-                                  border: "1px solid #c9cccf",
-                                  borderRadius: "6px",
-                                  cursor: "pointer",
-                                  fontSize: "13px",
-                                  background: "#fff",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
-                                {uploadState?.uploading ? (
-                                  <Spinner size="small" />
-                                ) : (
-                                  "↑ Upload CSV"
-                                )}
-                                <input
-                                  type="file"
-                                  accept=".csv"
-                                  style={{ display: "none" }}
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleFileUpload(cat, file);
-                                    e.target.value = "";
-                                  }}
-                                />
-                              </label>
-                              {(uploadState?.info || meta?.fileName) && (
-                                <Text variant="bodySm" as="span" tone="subdued">
-                                  {uploadState?.info ?? meta?.fileName}
-                                </Text>
-                              )}
-                            </InlineStack>
+                            <TextField
+                              label=""
+                              labelHidden
+                              placeholder="https://airtable.com/appXXX/tblXXX/viwXXX"
+                              value={config.airtableUrl ?? ""}
+                              onChange={(val) => updateConfig(cat, { airtableUrl: val })}
+                              autoComplete="off"
+                            />
                           </div>
 
-                          {/* Upload Videos — only shown when videos are queued */}
                           {videoCount > 0 && (
                             <Button
                               onClick={() => handleUploadVideos(cat)}
@@ -225,17 +167,15 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
                             </Button>
                           )}
 
-                          {/* Run Now */}
                           <Button
                             variant="primary"
                             onClick={() => handleSync(cat)}
                             loading={syncState?.running}
-                            disabled={!meta?.fileName && !uploadState?.info}
+                            disabled={!hasUrl}
                           >
                             Run Now
                           </Button>
 
-                          {/* Schedule toggle */}
                           <InlineStack gap="200" blockAlign="center">
                             <Checkbox
                               label="Schedule"
@@ -266,14 +206,13 @@ export function Dashboard({ initialConfigs, initialLogs, csvMeta: initialCsvMeta
 
                 <InlineStack align="end">
                   <Button variant="primary" onClick={handleSave} loading={saving}>
-                    Save Schedule Settings
+                    Save Settings
                   </Button>
                 </InlineStack>
               </BlockStack>
             </Card>
           </Layout.Section>
 
-          {/* Sync Log */}
           <Layout.Section>
             <Card>
               <BlockStack gap="300">
