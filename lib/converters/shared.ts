@@ -41,6 +41,30 @@ export function na(val: string | undefined): string {
   return v;
 }
 
+// AI-generated placeholder titles ("I do not have enough information…", "as an AI…",
+// "I'm sorry…") sometimes appear in the Airtable "Shopify Title" column. Treat them
+// as missing so callers fall through to a generated title or the SKU.
+const AI_PLACEHOLDER_PATTERNS = [
+  /\bi do(?: not|n[''']?t) have\b/i,
+  /\benough information\b/i,
+  /\bas an ai\b/i,
+  /\bi (?:cannot|can[''']?t) (?:create|generate|provide)\b/i,
+  /\bi[''']?m sorry\b/i,
+  /\bunable to (?:create|generate|provide)\b/i,
+];
+
+export function isAiPlaceholder(val: string | undefined): boolean {
+  if (!val) return false;
+  return AI_PLACEHOLDER_PATTERNS.some((re) => re.test(val));
+}
+
+export function cleanTitle(val: string | undefined): string {
+  const v = na(val);
+  if (!v) return "";
+  if (isAiPlaceholder(v)) return "";
+  return v;
+}
+
 // Match any column whose normalized name (lowercased, whitespace collapsed) matches one
 // of the target spellings. Rings uses "New website", Bracelets "New Website " (trailing
 // space), Earrings "New Wesbite" (typo — missing b). All three must pass.

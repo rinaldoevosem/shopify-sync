@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local one-shot sync/audit scripts (run via tsx, not part of the deployed app)
+/scripts/

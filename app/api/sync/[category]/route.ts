@@ -7,6 +7,7 @@ import { convertRing } from "@/lib/converters/rings";
 import { convertBracelet } from "@/lib/converters/bracelets";
 import { convertEarring } from "@/lib/converters/earrings";
 import { convertNecklace } from "@/lib/converters/necklaces";
+import { convertMensRing, shouldSkipMensRing } from "@/lib/converters/mens-rings";
 
 export const maxDuration = 300;
 
@@ -23,9 +24,18 @@ function getConverter(cat: Category): Converter | null {
       return convertEarring;
     case "necklaces":
       return convertNecklace;
+    case "mens-rings":
+      return convertMensRing;
     default:
       return null;
   }
+}
+
+// Per-category eligibility filter. Most categories gate on the "New Website"
+// flag in Airtable, but Men's Rings has no such column — only Archived.
+function getSkipFn(cat: Category): (row: AirtableRecord) => boolean {
+  if (cat === "mens-rings") return shouldSkipMensRing;
+  return shouldSkip;
 }
 
 // Map category id to Shopify product type string
@@ -79,7 +89,8 @@ export async function POST(
     );
   }
 
-  const eligible = records.filter((row) => !shouldSkip(row));
+  const skipFn = getSkipFn(cat);
+  const eligible = records.filter((row) => !skipFn(row));
 
   const startedAt = new Date().toISOString();
   let created = 0;
