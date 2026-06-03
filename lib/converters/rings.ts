@@ -2,6 +2,7 @@ import {
   AirtableRecord,
   ShopifyProductInput,
   na,
+  cleanTitle,
   singleLine,
   cleanPrice,
   mapMetalColor,
@@ -13,6 +14,35 @@ import {
   mf,
   listMf,
 } from "./shared";
+
+const STONE_TYPE_CHOICES: Record<string, string> = {
+  "natural diamond": "Natural Diamond",
+  "natural diamonds": "Natural Diamond",
+  "lab grown diamond": "Lab Grown Diamond",
+  "lab grown diamonds": "Lab Grown Diamond",
+  "lab-grown diamond": "Lab Grown Diamond",
+  "lab-grown diamonds": "Lab Grown Diamond",
+  gemstone: "Gemstone",
+  gemstones: "Gemstone",
+};
+
+function normalizeStoneTypes(raw: string | undefined): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .map((s) => STONE_TYPE_CHOICES[s.toLowerCase()] ?? "")
+    .filter(Boolean);
+}
+
+function normalizeMetalType(raw: string | undefined): string {
+  const v = na(raw);
+  if (!v) return "";
+  const upper = v.toUpperCase().replace(/\s+/g, "");
+  if (upper === "14K" || upper === "14KT") return "14KT";
+  if (upper === "18K" || upper === "18KT") return "18KT";
+  return "";
+}
 
 function buildTitle(row: AirtableRecord): string {
   const parts: string[] = [];
@@ -132,7 +162,8 @@ function buildTags(row: AirtableRecord): string[] {
 
 export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const sku = row["Item No."]?.trim() ?? "";
-  const title = na(row["Shopify Title"]) || sku;
+  const rawTitle = cleanTitle(row["Shopify Title"]) || buildTitle(row) || sku;
+  const title = rawTitle.length > 255 ? rawTitle.slice(0, 252).trimEnd() + "..." : rawTitle;
   const handle = buildHandle(sku, title);
 
   const allMedia = parseMediaUrls(row["Image"]);
@@ -142,10 +173,10 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
   const metafields = [
     mf("metal", mapMetalCombined(row["Metal Type"], row["Metal Color"])),
     listMf("metal_color", [mapMetalColor(row["Metal Color"])].filter(Boolean)),
-    listMf("metal_type", na(row["Metal Type"]) ? [na(row["Metal Type"])] : []),
+    listMf("metal_type", [normalizeMetalType(row["Metal Type"])].filter(Boolean)),
     mf("diamond_shape", mapStoneShape(row["Stone Shape"])),
     mf("diamond_type", mapDiamondType(row["Stone Type"])),
-    listMf("stone_type", na(row["Stone Type"]) ? na(row["Stone Type"])!.split(",").map((s) => s.trim()).filter(Boolean) : []),
+    listMf("stone_type", normalizeStoneTypes(na(row["Stone Type"]))),
     mf("stone_qty", singleLine(row["Stone Qty"])),
     mf("stone_total_weight", na(row["Stone Weight Total"])),
     mf("center_stone_weight", na(row["Center Stone Weight"])),
@@ -175,7 +206,7 @@ export function convertRing(row: AirtableRecord): ShopifyProductInput {
     metafields,
     media: allMedia,
     seoDescription: buildSeoDesc(row),
-    templateSuffix: "rings-product-template",
+    templateSuffix: "jewelry-product-page",
   };
 }
 
