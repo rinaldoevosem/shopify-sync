@@ -11,9 +11,30 @@ const noopKv = {
   ltrim: async () => "OK" as any,
   lrange: async () => [] as any[],
 };
-/* eslint-enable @typescript-eslint/no-explicit-any */
 
-const kv = isKvAvailable ? _kv : (noopKv as unknown as typeof _kv);
+const baseKv: any = isKvAvailable ? _kv : noopKv;
+
+// Resilient wrapper: if a KV call throws at runtime — e.g. the store was
+// deprovisioned and its host no longer resolves (getaddrinfo ENOTFOUND) — fall
+// back to the no-op result instead of letting the throw bubble up and turn
+// every page and API route into a 500. Reads degrade to empty; writes are
+// dropped. The dashboard stays up; it just can't persist until KV is restored.
+const guard = (op: string, fn: () => Promise<any>, fallback: any): Promise<any> =>
+  fn().catch((err: unknown) => {
+    console.error(`[kv] ${op} failed; using fallback:`, err);
+    return fallback;
+  });
+
+const kv = {
+  get: (key: string) => guard(`get ${key}`, () => baseKv.get(key), null),
+  set: (key: string, value: any) => guard(`set ${key}`, () => baseKv.set(key, value), "OK"),
+  lpush: (key: string, ...vals: any[]) => guard(`lpush ${key}`, () => baseKv.lpush(key, ...vals), 1),
+  ltrim: (key: string, start: number, stop: number) =>
+    guard(`ltrim ${key}`, () => baseKv.ltrim(key, start, stop), "OK"),
+  lrange: (key: string, start: number, stop: number) =>
+    guard(`lrange ${key}`, () => baseKv.lrange(key, start, stop), []),
+} as unknown as typeof _kv;
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export type Category =
   | "rings"
