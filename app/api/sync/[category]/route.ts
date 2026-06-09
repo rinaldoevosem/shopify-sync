@@ -8,6 +8,7 @@ import { convertBracelet } from "@/lib/converters/bracelets";
 import { convertEarring } from "@/lib/converters/earrings";
 import { convertNecklace } from "@/lib/converters/necklaces";
 import { convertMensRing, shouldSkipMensRing } from "@/lib/converters/mens-rings";
+import { convertBag, shouldSkipBag } from "@/lib/converters/bags";
 
 export const maxDuration = 300;
 
@@ -26,6 +27,8 @@ function getConverter(cat: Category): Converter | null {
       return convertNecklace;
     case "mens-rings":
       return convertMensRing;
+    case "bags":
+      return convertBag;
     default:
       return null;
   }
@@ -35,6 +38,7 @@ function getConverter(cat: Category): Converter | null {
 // flag in Airtable, but Men's Rings has no such column — only Archived.
 function getSkipFn(cat: Category): (row: AirtableRecord) => boolean {
   if (cat === "mens-rings") return shouldSkipMensRing;
+  if (cat === "bags") return shouldSkipBag;
   return shouldSkip;
 }
 
