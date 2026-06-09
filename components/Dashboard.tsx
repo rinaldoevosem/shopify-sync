@@ -43,16 +43,22 @@ export function Dashboard({ initialConfigs, initialLogs, videoQueueCounts: initi
     setConfigs((prev) => ({ ...prev, [cat]: { ...prev[cat], ...partial } }));
   };
 
+  // Persist the current settings to the server. Throws on a non-OK response so
+  // callers can surface the validation error (e.g. a malformed Airtable URL).
+  const persistConfigs = async () => {
+    const res = await fetch("/api/config", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(configs),
+    });
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error ?? "Save failed");
+  };
+
   const handleSave = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/config", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(configs),
-      });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Save failed");
+      await persistConfigs();
       setToast({ content: "Settings saved" });
     } catch (err) {
       setToast({ content: `Failed to save: ${err instanceof Error ? err.message : "error"}`, error: true });
@@ -64,6 +70,9 @@ export function Dashboard({ initialConfigs, initialLogs, videoQueueCounts: initi
   const handleSync = async (cat: Category) => {
     setSyncStates((prev) => ({ ...prev, [cat]: { running: true } }));
     try {
+      // Save settings first so the sync reads the URL just entered — "Run Now"
+      // enables off the text field, but the server syncs from the saved config.
+      await persistConfigs();
       const res = await fetch(`/api/sync/${cat}`, { method: "POST" });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error ?? "Sync failed");

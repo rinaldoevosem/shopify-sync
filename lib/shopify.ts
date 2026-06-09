@@ -164,6 +164,26 @@ mutation stagedUploadsCreate($input: [StagedUploadInput!]!) {
   }
 }`;
 
+const PRODUCT_MEDIA_TYPES = `
+query productMediaTypes($id: ID!) {
+  product(id: $id) {
+    media(first: 100) { edges { node { mediaContentType } } }
+  }
+}`;
+
+// True if the product already has at least one VIDEO. Used to make video upload
+// idempotent — re-running a drain (or re-syncing) must not append a second copy.
+// Videos sit last in the gallery, so we fetch enough media (100) to reach them;
+// a shallow check would false-negative on image-heavy products and duplicate.
+export async function productHasVideo(productGid: string): Promise<boolean> {
+  const data = await gql(PRODUCT_MEDIA_TYPES, { id: productGid });
+  const product = (data.data as Record<string, unknown>).product as {
+    media: { edges: { node: { mediaContentType: string } }[] };
+  } | null;
+  if (!product) return false;
+  return product.media.edges.some((e) => e.node.mediaContentType === "VIDEO");
+}
+
 const VIDEO_MIME: Record<string, string> = {
   mov: "video/quicktime",
   mp4: "video/mp4",
@@ -186,7 +206,7 @@ export async function uploadVideoToProduct(productGid: string, videoUrl: string,
 
   // Get staged upload target
   const stageData = await gql(STAGED_UPLOADS_CREATE, {
-    input: [{ filename, mimeType, resource: "PRODUCT_MEDIA", httpMethod: "POST", ...(fileSize ? { fileSize } : {}) }],
+    input: [{ filename, mimeType, resource: "VIDEO", httpMethod: "POST", ...(fileSize ? { fileSize } : {}) }],
   });
   const staged = (stageData.data as Record<string, unknown>).stagedUploadsCreate as {
     stagedTargets: { url: string; resourceUrl: string; parameters: { name: string; value: string }[] }[];
